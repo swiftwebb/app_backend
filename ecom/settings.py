@@ -1,9 +1,17 @@
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
+
+import dj_database_url
+
+
+
+
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
+load_dotenv()
 SECRET_KEY = os.getenv('SECRET_KEY') 
 
 DEBUG = True
@@ -54,11 +62,13 @@ WSGI_APPLICATION = 'ecom.wsgi.application'
 
 
 
-# Get DATABASE_URL from environment (set by Render in production)
-DATABASE_URL = os.getenv('DATABASE_URL')
 
-
-
+DATABASES = {
+    'default': dj_database_url.config(
+        default=os.getenv('DATABASE_URL'),
+        conn_max_age=600
+    )
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -110,7 +120,7 @@ REST_FRAMEWORK = {
     ],
 }
 
- STORAGES = {
+STORAGES = {
         "default": {
             "BACKEND": "storages.backends.s3.S3Storage",
             
@@ -121,8 +131,8 @@ REST_FRAMEWORK = {
     }
 
 
-    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
-    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-    AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME') 
-    AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
-    AWS_S3_FILE_OVERWRITE = False
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME') 
+AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
+AWS_S3_FILE_OVERWRITE = False
