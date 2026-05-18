@@ -11,5 +11,9 @@ urlpatterns = [
     path('products/', ItemListCreate.as_view(), name='item-list-create'),
     path('products/<int:pk>/', ProductDetailView.as_view(), name='product-detail'),
     path('', include(router.urls)),
+    path('register/', RegisterAPIView.as_view(), name='api_register'),
+    path('login/', LoginAPIView.as_view(), name='api_login'),
+    
     path('logout/', LogoutAPIView.as_view(), name='api_logout'),
+
 ]
