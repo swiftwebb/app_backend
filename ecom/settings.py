@@ -1,10 +1,10 @@
 
 from pathlib import Path
-
+import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-SECRET_KEY = 'django-insecure-ndse@*4=6u++uqkwz+!#=$ohha(&e2o5z@kael+z(3!)*uw#r5'
+SECRET_KEY = os.getenv('SECRET_KEY') 
 
 DEBUG = True
 
@@ -53,15 +53,23 @@ TEMPLATES = [
 WSGI_APPLICATION = 'ecom.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Get DATABASE_URL from environment (set by Render in production)
+DATABASE_URL = os.getenv('DATABASE_URL')
+
+if DATABASE_URL:
+    # Use Render's Postgres database in production
+    DATABASES = {
+        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     }
-}
+else:
+    # Local development DB: using SQLite by default
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -113,3 +121,20 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
     ],
 }
+
+ STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            
+        },
+        "staticfiles": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",  # for static files
+        },
+    }
+
+
+    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME') 
+    AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
+    AWS_S3_FILE_OVERWRITE = False
