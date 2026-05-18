@@ -11,4 +11,5 @@ urlpatterns = [
     path('products/', ItemListCreate.as_view(), name='item-list-create'),
     path('products/<int:pk>/', ProductDetailView.as_view(), name='product-detail'),
     path('', include(router.urls)),
+    path('logout/', LogoutAPIView.as_view(), name='api_logout'),
 ]
