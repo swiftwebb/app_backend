@@ -57,19 +57,7 @@ WSGI_APPLICATION = 'ecom.wsgi.application'
 # Get DATABASE_URL from environment (set by Render in production)
 DATABASE_URL = os.getenv('DATABASE_URL')
 
-if DATABASE_URL:
-    # Use Render's Postgres database in production
-    DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
-    }
-else:
-    # Local development DB: using SQLite by default
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+
 
 
 # Password validation
