@@ -62,34 +62,44 @@ class CartItemWriteSerializer(serializers.ModelSerializer):
         return data
 
 
-class CartViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
 
-    # Filters the data so users can only view items belonging to their own account
-    def get_queryset(self):
-        return CartItem.objects.filter(user=self.request.user).select_related('variation__product')
 
-    # Dynamically switches serializers based on the incoming request action
-    def get_serializer_class(self):
-        if self.action in ['list', 'retrieve']:
-            return CartItemReadSerializer
-        return CartItemWriteSerializer
 
-    # Automatically assigns the authenticated user when adding an item to the cart
-    def perform_create(self, serializer):
-        variation = serializer.validated_data['variation']
-        quantity = serializer.validated_data.get('quantity', 1)
-        
-        cart_item, created = CartItem.objects.get_or_create(
-            user=self.request.user,
-            variation=variation,
-            defaults={'quantity': quantity}
-        )
-        
-        if not created:
-            cart_item.quantity += quantity
-            if cart_item.quantity > variation.stock:
-                # Fix: raise ValidationError directly, not through serializer
-                from rest_framework.exceptions import ValidationError
-                raise ValidationError(f"Cannot add more. Max stock is {variation.stock}.")
-            cart_item.save()
+
+
+# ── Serializers ────────────────────────────────────────────────────────────────
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    subtotal = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'product_name', 'size', 'color', 'price_at_purchase', 'quantity', 'subtotal']
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'status', 'full_name', 'email', 'phone',
+            'address_line1', 'address_line2', 'city', 'state',
+            'postal_code', 'country', 'subtotal', 'shipping_cost',
+            'grand_total', 'payment_method', 'is_paid', 'created_at', 'items',
+        ]
+        read_only_fields = ['id', 'status', 'subtotal', 'shipping_cost', 'grand_total', 'is_paid', 'created_at', 'items']
+
+
+class CheckoutSerializer(serializers.Serializer):
+    """Accepts shipping address, creates Order + OrderItems from the user's cart."""
+    full_name     = serializers.CharField(max_length=255)
+    email         = serializers.EmailField()
+    phone         = serializers.CharField(max_length=20)
+    address_line1 = serializers.CharField(max_length=255)
+    address_line2 = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    city          = serializers.CharField(max_length=100)
+    state         = serializers.CharField(max_length=100)
+    postal_code   = serializers.CharField(max_length=20)
+    country       = serializers.CharField(max_length=100, default='Nigeria')
+    payment_method = serializers.CharField(max_length=50, default='card')
