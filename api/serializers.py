@@ -80,7 +80,6 @@ class CartViewSet(viewsets.ModelViewSet):
         variation = serializer.validated_data['variation']
         quantity = serializer.validated_data.get('quantity', 1)
         
-        # If the item already exists in the cart, add the quantities together
         cart_item, created = CartItem.objects.get_or_create(
             user=self.request.user,
             variation=variation,
@@ -89,7 +88,8 @@ class CartViewSet(viewsets.ModelViewSet):
         
         if not created:
             cart_item.quantity += quantity
-            # Re-verify stock ceiling limits before saving merged totals
             if cart_item.quantity > variation.stock:
-                raise serializer.ValidationError(f"Cannot add more items. Max stock is {variation.stock}.")
+                # Fix: raise ValidationError directly, not through serializer
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError(f"Cannot add more. Max stock is {variation.stock}.")
             cart_item.save()
