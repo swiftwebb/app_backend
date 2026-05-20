@@ -5,6 +5,9 @@ from rest_framework import generics
 from .models import *
 from .serializers import *
 
+from django.contrib.auth.models import User
+from rest_framework.authtoken.models import Token
+from django.contrib.auth import authenticate
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -17,9 +20,16 @@ class ItemListCreate(generics.ListCreateAPIView):
 
 
 
-class ProductDetailView(generics.RetrieveAPIView):
+class ProductDetailView(generics.RetrieveDestroyAPIView):
     queryset = Product.objects.all().prefetch_related('variations')
     serializer_class = ProductDetailSerializer
+
+
+    def perform_destroy(self, instance):
+        # Delete image from S3 before deleting the DB record
+        if instance.image:
+            instance.image.delete(save=False)
+        instance.delete()
 
 
 
@@ -37,9 +47,6 @@ class LogoutAPIView(APIView):
 
 
 
-from django.contrib.auth.models import User
-from rest_framework.authtoken.models import Token
-from django.contrib.auth import authenticate
 
 # ==============================================================================
 # USER REGISTRATION VIEW (SIGNUP)
