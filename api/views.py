@@ -184,7 +184,7 @@ class InitializePaymentAPIView(APIView):
                     'order_id': order.id,
                     'user_id': request.user.id,
                 },
-                'callback_url': 'https://app-backend-03wo.onrender.com/api/paystack/callback/,
+                'callback_url': 'https://app-backend-03wo.onrender.com/api/paystack/callback/',
             },
         )
 
