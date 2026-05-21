@@ -170,7 +170,7 @@ class InitializePaymentAPIView(APIView):
 
         # Initialize checkout session with Paystack
         paystack_res = http_requests.post(
-            'https://paystack.co',
+            'https://api.paystack.co/transaction/initialize',
             headers={
                 'Authorization': f'Bearer {PAYSTACK_SECRET}',
                 'Content-Type': 'application/json',
@@ -183,7 +183,7 @@ class InitializePaymentAPIView(APIView):
                     'order_id': order.id,
                     'user_id': request.user.id,
                 },
-                'callback_url': 'https://onrender.com',
+                'callback_url': 'https://app-backend-03wo.onrender.com/api/paystack/callback/,
             },
         )
 
@@ -208,7 +208,7 @@ class PaystackCallbackAPIView(APIView):
             return HttpResponse('<h2>Invalid payment reference.</h2>', status=400)
 
         verify_res = http_requests.get(
-            f'https://paystack.co{reference}',
+            f'https://api.paystack.co/transaction/verify/{reference}',
             headers={'Authorization': f'Bearer {PAYSTACK_SECRET}'},
         )
 
@@ -237,8 +237,6 @@ class PaystackCallbackAPIView(APIView):
 class VerifyPaymentAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    get_queryset = None
-
     def get(self, request, order_id):
         try:
             order = Order.objects.get(id=order_id, user=request.user)
@@ -251,49 +249,6 @@ class VerifyPaymentAPIView(APIView):
             "status": order.status,
             "grand_total": str(order.grand_total),
         })
-
-    """
-    Step 2 — Paystack redirects the user here after payment.
-    Verifies the transaction and marks the order as paid.
-    This is a browser redirect so we return a simple HTML response.
-    """
-    def get(self, request):
-        reference = request.GET.get('reference', '')
-        if not reference:
-            return HttpResponse('<h2>Invalid payment reference.</h2>', status=400)
-
-        verify_res = http_requests.get(
-            f'https://api.paystack.co/transaction/verify/{reference}',
-            headers={'Authorization': f'Bearer {PAYSTACK_SECRET}'},
-        )
-
-        if verify_res.status_code != 200:
-            return HttpResponse('<h2>Could not verify payment.</h2>', status=502)
-
-        verify_data = verify_res.json()['data']
-
-        if verify_data['status'] != 'success':
-            return HttpResponse('<h2>Payment was not successful.</h2>', status=400)
-
-        # Extract our order id from the reference (format: ORDER-<id>)
-        try:
-            order_id = int(reference.replace('ORDER-', ''))
-            order = Order.objects.get(id=order_id)
-        except (ValueError, Order.DoesNotExist):
-            return HttpResponse('<h2>Order not found.</h2>', status=404)
-
-        if not order.is_paid:
-            order.is_paid = True
-            order.status = 'confirmed'
-            order.payment_ref = reference
-            order.save()
-
-            # Clear the cart now that payment is confirmed
-            CartItem.objects.filter(user=order.user).delete()
-
-        # Redirect the WebView to a deep link your app can catch
-        return HttpResponseRedirect(f'myapp://payment-success?orderId={order.id}')
-
 
 class PaystackWebhookAPIView(APIView):
     """
