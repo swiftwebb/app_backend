@@ -117,8 +117,12 @@ import hmac, hashlib, json
 PAYSTACK_SECRET = os.getenv('PAYSTACK_SECRET_KEY')  # sk_live_... or sk_test_...
 
 
-
 class InitializePaymentAPIView(APIView):
+    """
+    Step 1 — Called when user taps 'Pay now'.
+    Creates a pending Order, then asks Paystack for a payment authorization URL.
+    Returns the URL to the app which opens it in a WebView/browser.
+    """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -132,9 +136,9 @@ class InitializePaymentAPIView(APIView):
         if not cart_items.exists():
             return Response({"error": "Your cart is empty."}, status=status.HTTP_400_BAD_REQUEST)
 
-        subtotal = sum(item.quantity * item.variation.product.price for item in cart_items)
-        shipping = 0
-        grand_total = subtotal + shipping
+        subtotal     = sum(item.quantity * item.variation.product.price for item in cart_items)
+        shipping     = 0
+        grand_total  = subtotal + shipping
 
         try:
             with transaction.atomic():
@@ -168,7 +172,8 @@ class InitializePaymentAPIView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Initialize checkout session with Paystack
+        # Ask Paystack to create a payment session
+        # Amount must be in kobo (multiply by 100)
         paystack_res = http_requests.post(
             'https://api.paystack.co/transaction/initialize',
             headers={
@@ -177,31 +182,35 @@ class InitializePaymentAPIView(APIView):
             },
             json={
                 'email': data['email'],
-                'amount': int(grand_total * 100),  # price to kobo/cents conversion
+                'amount': int(grand_total * 100),   # kobo
                 'reference': f'ORDER-{order.id}',
                 'metadata': {
                     'order_id': order.id,
                     'user_id': request.user.id,
+                    'cancel_action': 'https://your-app.com/payment-cancelled',
                 },
-                'callback_url': 'https://app-backend-03wo.onrender.com/api/paystack/callback/,
+                'callback_url': f'https://app-backend-03wo.onrender.com/api/paystack/callback/',
             },
         )
 
         if paystack_res.status_code != 200:
-            print("--- PAYSTACK INITIALIZE FAILURE ---")
-            print(f"Status Code: {paystack_res.status_code}")
-            print(f"Response: {paystack_res.text}")
-            order.delete()  # rollback
+            order.delete()  # rollback — don't leave a ghost order
             return Response({"error": "Could not initialize payment. Try again."}, status=status.HTTP_502_BAD_GATEWAY)
 
         paystack_data = paystack_res.json()['data']
         return Response({
             'order_id': order.id,
-            'authorization_url': paystack_data['authorization_url'],
+            'authorization_url': paystack_data['authorization_url'],  # open this in WebView
             'reference': paystack_data['reference'],
         }, status=status.HTTP_200_OK)
 
+
 class PaystackCallbackAPIView(APIView):
+    """
+    Step 2 — Paystack redirects the user here after payment.
+    Verifies the transaction and marks the order as paid.
+    This is a browser redirect so we return a simple HTML response.
+    """
     def get(self, request):
         reference = request.GET.get('reference', '')
         if not reference:
@@ -216,9 +225,11 @@ class PaystackCallbackAPIView(APIView):
             return HttpResponse('<h2>Could not verify payment.</h2>', status=502)
 
         verify_data = verify_res.json()['data']
+
         if verify_data['status'] != 'success':
             return HttpResponse('<h2>Payment was not successful.</h2>', status=400)
 
+        # Extract our order id from the reference (format: ORDER-<id>)
         try:
             order_id = int(reference.replace('ORDER-', ''))
             order = Order.objects.get(id=order_id)
@@ -230,25 +241,13 @@ class PaystackCallbackAPIView(APIView):
             order.status = 'confirmed'
             order.payment_ref = reference
             order.save()
+
+            # Clear the cart now that payment is confirmed
             CartItem.objects.filter(user=order.user).delete()
 
+        # Redirect the WebView to a deep link your app can catch
         return HttpResponseRedirect(f'myapp://payment-success?orderId={order.id}')
 
-class VerifyPaymentAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, order_id):
-        try:
-            order = Order.objects.get(id=order_id, user=request.user)
-        except Order.DoesNotExist:
-            return Response({"error": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        return Response({
-            "order_id": order.id,
-            "is_paid": order.is_paid,
-            "status": order.status,
-            "grand_total": str(order.grand_total),
-        })
 
 class PaystackWebhookAPIView(APIView):
     """
@@ -288,6 +287,7 @@ class PaystackWebhookAPIView(APIView):
         return Response({"status": "ok"})
 
 
+class VerifyPaymentAPIView(APIView):
     """
     The app calls this after the WebView closes to confirm payment status.
     Avoids relying solely on deep links which can fail.
