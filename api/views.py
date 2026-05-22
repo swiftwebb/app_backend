@@ -283,6 +283,7 @@ class InitializePaymentAPIView(APIView):
             'order_id':          order.id,
             'authorization_url': paystack_data['authorization_url'],
             'reference':         paystack_data['reference'],
+            'access_code':       paystack_data['access_code'],
         }, status=status.HTTP_200_OK)
 
 
