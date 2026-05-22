@@ -23,6 +23,9 @@ urlpatterns = [
 path('checkout/', CheckoutAPIView.as_view(), name='checkout'),
 path('orders/', OrderListAPIView.as_view(), name='order-list'),
 
+path('payment-success/',   PaymentSuccessView.as_view(),   name='payment-success'),
+path('payment-cancelled/', PaymentCancelledView.as_view(), name='payment-cancelled'),
+
 
 path('paystack/initialize/', InitializePaymentAPIView.as_view(), name='paystack-init'),
 path('paystack/callback/',   PaystackCallbackAPIView.as_view(),  name='paystack-callback'),

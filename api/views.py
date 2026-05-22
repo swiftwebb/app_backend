@@ -1,4 +1,5 @@
 from django.shortcuts import render
+    from django.http import HttpResponse
 
 # Create your views here.
 from rest_framework import generics
@@ -420,3 +421,14 @@ class OrderListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         return Order.objects.filter(user=self.request.user).prefetch_related('items')
+
+
+
+class PaymentSuccessView(APIView):
+    def get(self, request):
+        # WebView catches this URL via onNavigationStateChange
+        return HttpResponse('<h2>Payment successful! Returning to app...</h2>')
+
+class PaymentCancelledView(APIView):
+    def get(self, request):
+        return HttpResponse('<h2>Payment cancelled.</h2>')
